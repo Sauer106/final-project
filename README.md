@@ -21,6 +21,7 @@ final-project/
     schema_verification.md     Verification queries and their results
     schema_reflection.md       Reflection on the design
     query_portfolio.md         Eight SQL queries with output and explanations
+    db_access_notes.md         Notes on the Python database access layer
 ```
 
 ## Database Design
@@ -61,6 +62,23 @@ time. SQLite ships with Python, so no separate database installation is needed.
 The queries in `docs/schema_verification.md` confirm the record counts and show
 sample joins and aggregations. You can also open `data/project.db` in DB Browser
 for SQLite or run the queries with the `sqlite3` command line.
+
+## Test Database Access
+
+To rebuild the database:
+
+```bash
+python seed.py
+```
+
+To test the database access layer in `db.py`:
+
+```bash
+python db.py
+```
+
+This runs each access function and prints the results to the terminal, which
+confirms that Python can connect to the database and retrieve data.
 
 ## Run the App
 
