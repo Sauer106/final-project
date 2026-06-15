@@ -22,6 +22,7 @@ final-project/
     schema_reflection.md       Reflection on the design
     query_portfolio.md         Eight SQL queries with output and explanations
     db_access_notes.md         Notes on the Python database access layer
+    streamlit_prototype_notes.md  Notes on the Streamlit prototype
 ```
 
 ## Database Design
@@ -80,15 +81,26 @@ python db.py
 This runs each access function and prints the results to the terminal, which
 confirms that Python can connect to the database and retrieve data.
 
-## Run the App
+## Run the Streamlit Prototype
 
-Install dependencies and start Streamlit:
+1. Rebuild the database (if you have not already):
 
-```bash
-pip install -r requirements.txt
-streamlit run app.py
-```
+   ```bash
+   python seed.py
+   ```
 
-The app opens at `http://localhost:8501` and lists tickets read from the
-database, with a detail view for each ticket. The AI summarization feature will
-be added in a later assignment.
+2. Install dependencies and start the app:
+
+   ```bash
+   pip install -r requirements.txt
+   streamlit run app.py
+   ```
+
+3. Open the browser at the local address shown in the terminal (usually
+   `http://localhost:8501`).
+
+The prototype displays all tickets, a status filter, a joined view of tickets
+with requester and category, ticket counts by status, a per-ticket detail view,
+and a placeholder for the future AI feature. All data is read through the
+functions in `db.py`. The AI summarization feature will be added in a later
+assignment.
