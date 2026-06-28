@@ -1,12 +1,13 @@
 """Streamlit interface for the AI Help Desk Ticket Assistant.
 
-This is the first working prototype. It reads everything through the functions
-in db.py -- no SQL lives in this file -- and displays ticket data, a status
-filter, a JOIN result, an aggregation, a detail view, and a placeholder for the
-future AI feature. No AI model is called yet.
+Architecture:
+    user -> Streamlit (app.py) -> db.py (SQL) -> project.db
+    Streamlit (app.py) -> ai.py (prompt + model call)
 
-Run with:
-    streamlit run app.py
+The app displays ticket data, lets the user select a ticket, shows the database
+evidence for that ticket, and generates an AI summary from that evidence. The
+database is the source of truth; the AI only summarizes evidence shown to the
+user.
 """
 
 import streamlit as st
@@ -18,8 +19,8 @@ from db import (
     get_ticket_counts_by_status,
     get_ticket_evidence_for_ai,
 )
+from ai import evidence_dataframe_to_text, generate_ai_response
 
-# 1. Clear title and short description.
 st.set_page_config(
     page_title="AI Help Desk Ticket Assistant",
     page_icon="\U0001F3AB",
@@ -29,23 +30,23 @@ st.set_page_config(
 st.title("AI Help Desk Ticket Assistant")
 st.write(
     """
-    This prototype lets a help desk analyst inspect, filter, and review the
-    ticket data stored in a relational database. Every section below reads from
-    the database through functions in `db.py`. A later version will use the
-    ticket evidence shown here to generate AI-supported summaries.
+    This application lets a help desk analyst inspect and filter ticket data and
+    generate an AI summary of a selected ticket. Every section reads from the
+    database through functions in `db.py`, and the AI feature summarizes only the
+    database evidence shown on screen.
     """
 )
 
-# 9. Everything is wrapped so a database problem shows a clear message instead
-#    of a blank page or a raw crash.
+# Everything is wrapped so a database problem shows a clear message instead of a
+# blank page or a raw crash.
 try:
-    # 2 + 8. Database-backed data display (calls db.py).
+    # --- Database-backed data display ---
     st.header("All Tickets")
     tickets = get_all_tickets()
     st.dataframe(tickets, use_container_width=True)
     st.caption(f"{len(tickets)} tickets loaded from the database.")
 
-    # 3. User-controlled filter, backed by a parameterized query.
+    # --- User-controlled filter (parameterized query) ---
     st.header("Filter Tickets by Status")
     status = st.selectbox(
         "Choose a ticket status",
@@ -57,16 +58,12 @@ try:
     else:
         st.dataframe(filtered, use_container_width=True)
 
-    # 4. JOIN query result.
+    # --- JOIN query result ---
     st.header("Tickets with Requester and Category")
-    st.write(
-        "This view joins the tickets, users, and categories tables so each "
-        "ticket shows who submitted it and what type of issue it is."
-    )
     ticket_context = get_tickets_with_requesters()
     st.dataframe(ticket_context, use_container_width=True)
 
-    # 5. Aggregation / GROUP BY result, with a chart.
+    # --- Aggregation / GROUP BY result ---
     st.header("Ticket Counts by Status")
     counts = get_ticket_counts_by_status()
     col1, col2 = st.columns(2)
@@ -76,20 +73,22 @@ try:
         if not counts.empty:
             st.bar_chart(counts.set_index("status"))
 
-    # 6. Detail view -- reuses the AI-support retrieval function.
-    st.header("Ticket Detail / AI Evidence Preview")
+    # --- AI Ticket Summary (the database-backed AI feature) ---
+    st.header("AI Ticket Summary")
     st.write(
-        "Select a ticket to see the full evidence bundle that the future AI "
-        "feature would summarize."
+        "Select a ticket to retrieve its evidence from the database and generate "
+        "an AI summary. The AI uses only the evidence shown below."
     )
     ticket_id = st.number_input("Enter a ticket ID", min_value=1, step=1, value=1)
     evidence = get_ticket_evidence_for_ai(int(ticket_id))
 
+    st.subheader("Database Evidence Used")
     if evidence.empty:
-        st.warning("No ticket found for that ID.")
+        # Missing-record handling.
+        st.warning("No database evidence found for that ticket ID. Try another ID.")
     else:
         row = evidence.iloc[0]
-        st.subheader(f"#{row['ticket_id']} - {row['title']}")
+        st.markdown(f"**#{row['ticket_id']} \u2014 {row['title']}**")
         c1, c2, c3 = st.columns(3)
         c1.metric("Priority", row["priority"])
         c2.metric("Status", row["status"])
@@ -100,25 +99,30 @@ try:
         st.write(row["comment_history"] if row["comment_history"] else "No comments yet.")
         st.markdown("**Resolution**")
         st.write(row["resolution_text"] if row["resolution_text"] else "Not resolved yet.")
+        with st.expander("View the raw evidence row sent to the AI"):
+            st.dataframe(evidence, use_container_width=True)
 
-    # 7. Future AI feature placeholder.
-    st.header("Future AI Feature")
-    st.info(
-        """
-        In the next phase, this section will take the selected ticket's evidence
-        -- its description, comment history, and resolution -- and use an AI model
-        to generate a short summary and a suggested category or next step. The
-        database will remain the source of truth; the AI will only summarize what
-        is shown above.
-        """
-    )
-    if st.button("Generate AI Summary (placeholder)"):
+        # Convert the database evidence into text for the model.
+        evidence_text = evidence_dataframe_to_text(evidence)
+
+        # Required user-facing warning.
         st.warning(
-            "AI integration has not been implemented yet -- it is coming in a "
-            "later assignment."
+            "AI output is generated from the database evidence shown above. "
+            "Always verify the response against the source records \u2014 the "
+            "database, not the AI, is the source of truth."
         )
 
+        if st.button("Generate AI Summary"):
+            with st.spinner("Generating AI response..."):
+                ai_output = generate_ai_response(evidence_text)
+            st.subheader("AI-Generated Output")
+            st.write(ai_output)
+            st.caption(
+                "AI-generated from the evidence above. This is an assistant, not "
+                "a verified record."
+            )
+
 except Exception as error:  # noqa: BLE001
-    st.error("The Streamlit prototype could not load data from the database.")
+    st.error("The application could not load data from the database.")
     st.write("Make sure the database has been built by running `python seed.py`.")
     st.exception(error)

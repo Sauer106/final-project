@@ -1,9 +1,9 @@
 # AI Help Desk Ticket Assistant
 
-A database-backed AI application built with Python, SQL, and Streamlit. This
-repository contains the first working version of the project database (schema and
-seed data) for the AI Help Desk Ticket Assistant, which helps support analysts
-review, classify, and summarize technical support tickets.
+A database-backed AI application built with Python, SQL, and Streamlit. The
+AI Help Desk Ticket Assistant helps support analysts review and summarize
+technical support tickets, with an AI feature that summarizes a selected ticket
+using only database-resident evidence.
 
 ## Project Structure
 
@@ -11,10 +11,12 @@ review, classify, and summarize technical support tickets.
 final-project/
   README.md
   requirements.txt
-  app.py                       Streamlit interface (reads tickets from the database)
+  app.py                       Streamlit interface (data display + AI feature)
   db.py                        Database access functions
+  ai.py                        AI prompt construction and model call
   schema.sql                   CREATE TABLE statements and constraints
   seed.py                      Builds data/project.db and loads seed data
+  .env.example                 Template for the AI API key (copy to .env)
   data/
     project.db                 The generated SQLite database
   docs/
@@ -23,6 +25,7 @@ final-project/
     query_portfolio.md         Eight SQL queries with output and explanations
     db_access_notes.md         Notes on the Python database access layer
     streamlit_prototype_notes.md  Notes on the Streamlit prototype
+    ai_feature_notes.md        Notes on the AI integration
 ```
 
 ## Database Design
@@ -100,7 +103,51 @@ confirms that Python can connect to the database and retrieve data.
    `http://localhost:8501`).
 
 The prototype displays all tickets, a status filter, a joined view of tickets
-with requester and category, ticket counts by status, a per-ticket detail view,
-and a placeholder for the future AI feature. All data is read through the
-functions in `db.py`. The AI summarization feature will be added in a later
-assignment.
+with requester and category, ticket counts by status, and an AI ticket summary
+feature. All data is read through the functions in `db.py`.
+
+## Run the AI-Enabled Prototype
+
+1. Install dependencies:
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. Rebuild the database:
+
+   ```bash
+   python seed.py
+   ```
+
+3. Configure AI access. Copy the template and add your key:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Then edit `.env` and set your key:
+
+   ```text
+   ANTHROPIC_API_KEY=your_key_here
+   ```
+
+   Do not commit or submit your real `.env` file (it is in `.gitignore`). If no
+   key is set, the app still runs and the AI feature returns a clearly labeled
+   mock response instead of calling a real model.
+
+4. Run the app:
+
+   ```bash
+   streamlit run app.py
+   ```
+
+### What the AI feature does
+
+In the **AI Ticket Summary** section, select a ticket ID. The app retrieves that
+ticket's evidence from the database through `get_ticket_evidence_for_ai()`,
+displays the evidence, and (on button click) sends only that evidence to the AI
+model via `ai.py`. The model returns a structured summary with a likely issue,
+suggested priority, recommended next action, and any missing information. The
+database remains the source of truth: the AI summarizes only the displayed
+evidence and never modifies any records.
